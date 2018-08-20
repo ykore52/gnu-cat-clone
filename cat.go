@@ -12,14 +12,14 @@ import (
 // オプション用構造体
 //
 type Options struct {
+	filename            string
+	is_enable_stdin     bool
 	is_number           bool
 	is_number_nonblank  bool
 	is_show_ends        bool
 	is_show_nonprinting bool
 	is_show_tabs        bool
 	is_squeeze_blank    bool
-	is_enable_stdin     bool
-	filename            string
 }
 
 //
@@ -28,14 +28,14 @@ type Options struct {
 func NewOptions() *Options {
 	s := new(Options)
 
+	s.filename = ""
+	s.is_enable_stdin = false
 	s.is_number = false
 	s.is_number_nonblank = false
 	s.is_show_ends = false
 	s.is_show_nonprinting = false
 	s.is_show_tabs = false
 	s.is_squeeze_blank = false
-	s.is_enable_stdin = false
-	s.filename = ""
 
 	return s
 }
@@ -83,19 +83,24 @@ func Cat(
 			return err
 		}
 
-		var out_buf = make([]byte, 0, 1024)
+		var out_buf = make([]byte, 0, 4096)
 
 		if is_number &&
 			is_number_nonblank &&
 			len(line) == 0 {
 			// do nothing
 		} else if is_number {
-			line_number += 1
+			line_number++
 			out_buf = append(out_buf, []byte(fmt.Sprintf("%6d  ", line_number))...)
 		}
 
 		if len(line) != 0 {
 			if is_show_nonprinting {
+
+				/*
+					  文字を byte 単位で切り出すために range ではなく
+						C-style for を使う
+				*/
 				for i := 0; i < len(line); i++ {
 					char := &line[i]
 
@@ -146,6 +151,10 @@ func Cat(
 
 			} else { // if !is_show_nonprinting
 
+				/*
+					  文字を byte 単位で切り出すために range ではなく
+						C-style for を使う
+				*/
 				for i := 0; i < len(line); i++ {
 					char := &line[i]
 					if *char == '\t' && is_show_tabs {
@@ -163,7 +172,7 @@ func Cat(
 		} else { // if len(line) == 0
 
 			if is_squeeze_blank {
-				new_lines += 1
+				new_lines++
 				if new_lines >= 2 {
 					continue
 				}
@@ -235,9 +244,10 @@ func usage() {
 // コマンドオプションの解釈
 //
 func read_options(osArgs []string) (*Options, int) {
+
 	opt := NewOptions()
-	for i := 0; i < len(osArgs); i++ {
-		elem := osArgs[i]
+
+	for _, elem := range osArgs {
 
 		// 標準入力からの読み込みオプション
 		if len(elem) == 1 && elem[0] == '-' {
